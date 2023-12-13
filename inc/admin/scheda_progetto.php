@@ -7,7 +7,7 @@ function dsi_register_scheda_progetto_post_type() {
 
 	/** scheda **/
 	$labels = array(
-		'name'          => _x( 'Schede Progetti', 'Post Type General Name', 'design_scuole_italia' ),
+		'name'          => _x( 'I progetti delle classi', 'Post Type General Name', 'design_scuole_italia' ),
 		'singular_name' => _x( 'Scheda Progetto', 'Post Type Singular Name', 'design_scuole_italia' ),
 		'add_new'       => _x( 'Aggiungi una Scheda', 'Post Type Singular Name', 'design_scuole_italia' ),
 		'add_new_item'  => _x( 'Aggiungi una nuova Scheda', 'Post Type Singular Name', 'design_scuole_italia' ),
@@ -487,5 +487,5 @@ add_action( 'admin_print_scripts-post.php', 'dsi_progetto_admin_script', 11 );
 function dsi_progetto_admin_script() {
     global $post_type;
     if( 'scheda_progetto' == $post_type )
-        wp_enqueue_script( 'progetto-admin-script', get_stylesheet_directory_uri() . '/inc/admin-js/progetto.js' );
+        wp_enqueue_script( 'progetto-admin-script', get_template_directory_uri() . '/inc/admin-js/progetto.js' );
 }
