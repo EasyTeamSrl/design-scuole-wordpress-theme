@@ -151,29 +151,44 @@ function dsi_eventi_filters( $query ) {
             $query->set('meta_key', '_dsi_evento_timestamp_inizio' );
             $query->set('orderby', array('meta_value' => 'DESC', 'date' => 'DESC'));
             $query->set( 'meta_query', array(
+                'relation' => 'AND',
                 array(
-                    'key' => '_dsi_evento_timestamp_inizio'
+                    'key' => '_dsi_evento_timestamp_inizio',
+                    'value' => current_datetime()->modify('today')->getTimestamp(),
+                    'compare' => '<',
+                    'type' => 'numeric'
                 ),
                 array(
-                    'key' => '_dsi_evento_timestamp_fine',
-                    'value' => time(),
-                    'compare' => '<=',
-                    'type' => 'numeric'
+                    'relation' => 'OR',
+                    array(
+                        'key' => '_dsi_evento_timestamp_fine',
+                        'value' => current_datetime()->modify('today')->getTimestamp(),
+                        'compare' => '<',
+                        'type' => 'numeric'
+                    ),
+                    array(
+                        'key' => '_dsi_evento_timestamp_fine',
+                        'compare' => 'NOT EXISTS',
+                    ),
                 )
             ));
         }else{
             $query->set('meta_key', '_dsi_evento_timestamp_inizio' );
             $query->set('orderby', array('meta_value' => 'ASC', 'date' => 'ASC'));
             $query->set( 'meta_query', array(
-                array(
-                    'key' => '_dsi_evento_timestamp_inizio'
-                ),
+                'relation' => 'OR',
                 array(
                     'key' => '_dsi_evento_timestamp_fine',
-                    'value' => time(),
+                    'value' => current_datetime()->modify('today')->getTimestamp(),
                     'compare' => '>=',
                     'type' => 'numeric'
-                )
+                ),
+                array(
+                    'key' => '_dsi_evento_timestamp_inizio',
+                    'value' => current_datetime()->modify('today')->getTimestamp(),
+                    'compare' => '>=',
+                    'type' => 'numeric'
+                ),
             ));
 
         }
@@ -207,41 +222,71 @@ add_action( 'pre_get_posts', 'dsi_eventi_filters' );
  * filter for schede progetti
  *  controllo le query sulòle schede progetto e le modifico per estrarre quelle dell'anno in corso
  */
-function dsi_schede_progetti_filters( $query ) {
+function dsi_schede_progetti_filters( WP_Query $query ) {
 
-    if ( ! is_admin() && $query->is_main_query() && is_post_type_archive("scheda_progetto") ) {
+    if ( ! is_admin() && $query->is_main_query() && (is_post_type_archive("scheda_progetto") || is_tax("tipologia-progetto")) ) {
+    //if ( ! is_admin() && $query->is_main_query() && (is_post_type_archive("scheda_progetto") || (get_queried_object()?->taxonomy ?? null) == "tipologia-progetto") ) {
 
-        $query->set("meta_key", "_dsi_scheda_progetto_is_realizzato");
-        $query->set("orderby", "_dsi_scheda_progetto_is_realizzato");
-        $query->set("order", "desc");
+        $orderby = dsi_get_option("ordinamento_progetti", "didattica") ?? 'date';
+        $order_direction = dsi_get_option("direzione_ordinamento_progetti", "didattica") === 'asc' ? 'asc' : 'desc';
 
+        $query->set("meta_key", "_dsi_scheda_progetto_timestamp_fine");
+        $query->set("orderby", "meta_value_num");
 
-        if(isset($_GET["archive"]) && ($_GET["archive"] == "true")){
+        switch ($orderby) {
+            case 'timestamp_inizio':
+                $query->set("orderby", "meta_value_num");
+                $query->set("meta_key", "_dsi_scheda_progetto_timestamp_inizio");
+                break;
+            case 'timestamp_fine':
+                $query->set("orderby", "meta_value_num");
+                $query->set("meta_key", "_dsi_scheda_progetto_timestamp_fine");
+                break;
+            case 'anno_scolastico':
+                $query->set("orderby", "meta_value_num");
+                $query->set("meta_key", "_dsi_scheda_progetto_anno_scolastico");
+                break;
+            case 'title':
+            case 'date':
+                $query->set("orderby", $orderby);
+                break;
+            case 'realizzato':
+            default:
+                $query->set("orderby", "meta_value");
+                $query->set("meta_key", "_dsi_scheda_progetto_is_realizzato");
+                break;
+        }
 
-            $query->set( 'meta_query', array(
-                'relation' => 'OR',
-                array(
-                    'key' => '_dsi_scheda_progetto_anno_scolastico',
-                    'compare' => 'NOT EXISTS'
-                ),
-                array(
-                    'key' => '_dsi_scheda_progetto_anno_scolastico',
-                    'value' => dsi_get_current_anno_scolastico(),
-                    'compare' => '!=',
-                    'type' => 'numeric'
-                )
-            ));
-        }else{
+        $query->set("order", $order_direction);
 
-            $query->set( 'meta_query', array(
-                array(
-                    'key' => '_dsi_scheda_progetto_anno_scolastico',
-                    'value' => dsi_get_current_anno_scolastico(),
-                    'compare' => '=',
-                    'type' => 'numeric'
-                )
-            ));
+        if(is_post_type_archive("scheda_progetto")){
+            if(isset($_GET["archive"]) && ($_GET["archive"] == "true")){
 
+                $query->set( 'meta_query', array(
+                    'relation' => 'OR',
+                    array(
+                        'key' => '_dsi_scheda_progetto_anno_scolastico',
+                        'compare' => 'NOT EXISTS'
+                    ),
+                    array(
+                        'key' => '_dsi_scheda_progetto_anno_scolastico',
+                        'value' => dsi_get_current_anno_scolastico(),
+                        'compare' => '!=',
+                        'type' => 'numeric'
+                    )
+                ));
+            }else{
+    
+                $query->set( 'meta_query', array(
+                    array(
+                        'key' => '_dsi_scheda_progetto_anno_scolastico',
+                        'value' => dsi_get_current_anno_scolastico(),
+                        'compare' => '=',
+                        'type' => 'numeric'
+                    )
+                ));
+    
+            }
         }
     }
 }
@@ -707,3 +752,57 @@ add_filter( 'anac_filter_basexmlurl', function( $string ) { // Base URL
 
 }, 10, 3 );
 
+
+function block_profile_editing() {
+    $user = wp_get_current_user();
+
+    $has_cap = false;
+
+    foreach($user->roles as $user_role) {
+        $role = get_role($user_role);
+        $has_cap = ($has_cap || isset($role->capabilities['edit_own_profile']));
+    }
+
+    if( $has_cap ) {
+        if (strpos($_SERVER['REQUEST_URI'], 'profile.php') !== false && !current_user_can('edit_own_profile')) {
+            wp_die(__('Non hai i permessi per modificare il tuo profilo, contatta l\'amministrazione del sito. <br /><a href="index.php">Torna alla bacheca</a>'));
+        }
+    }
+}
+add_action('admin_init', 'block_profile_editing');
+
+function remove_profile_menu_for_users() {
+    $user = wp_get_current_user();
+    
+    $has_cap = false;
+
+    foreach($user->roles as $user_role) {
+        $role = get_role($user_role);
+        $has_cap = ($has_cap || isset($role->capabilities['edit_own_profile']));
+    }
+    
+    if( $has_cap ) {
+        if (!current_user_can('edit_own_profile')) {
+            remove_menu_page('profile.php'); // Removes the profile page from the menu
+        }
+    }
+}
+add_action('admin_menu', 'remove_profile_menu_for_users');
+
+function prevent_profile_update($errors, $update, $user) {
+    $current_user = wp_get_current_user();
+
+    $has_cap = false;
+
+    foreach($current_user->roles as $user_role) {
+        $role = get_role($user_role);
+        $has_cap = ($has_cap || isset($role->capabilities['edit_own_profile']));
+    }
+
+    if( $has_cap ) {
+        if ($update && !current_user_can('edit_own_profile') && $user->ID == $current_user->ID) {
+            $errors->add('no_profile_edit', __('Non hai i permessi per modificare il tuo profilo, contatta l\'amministrazione del sito.'));
+        }
+    }
+}
+add_action('user_profile_update_errors', 'prevent_profile_update', 10, 3);

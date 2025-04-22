@@ -411,7 +411,7 @@ class Breadcrumb_Trail {
                     $this->add_term_archive_items();
                 } else if ( is_author() ) {
 					$this->items[] = "<a href='".home_url("la-scuola")."'>".__("Scuola", "design_scuole_italia")."</a>";
-					$this->items[] = "<a href='".home_url("la-scuola/persone")."'>".__("Le persone", "design_scuole_italia")."</a>";
+					$this->items[] = "<a href='".home_url("la-scuola/le-persone")."'>".__("Le persone", "design_scuole_italia")."</a>";
 					$this->add_user_archive_items();
 				} else if ( get_query_var( 'minute' ) && get_query_var( 'hour' ) ) {
 					$this->add_minute_hour_archive_items();
@@ -641,7 +641,7 @@ class Breadcrumb_Trail {
 		if ( false !== $taxonomy->rewrite ) {
 
 			// If 'with_front' is true, dd $wp_rewrite->front to the trail.
-			if ( $taxonomy->rewrite['with_front'] && $wp_rewrite->front )
+			if ( array_key_exists('with_front', $taxonomy->rewrite) && $taxonomy->rewrite['with_front'] && $wp_rewrite->front )
 				$this->add_rewrite_front_items();
 
 			// Get parent pages by path if they exist.
@@ -1112,7 +1112,7 @@ class Breadcrumb_Trail {
 
 		foreach ( $post_types as $type ) {
 
-			if ( $slug === $type->has_archive || ( true === $type->has_archive && $slug === $type->rewrite['slug'] ) )
+			if ( $slug === $type->has_archive || ( true === $type->has_archive && is_array($type->rewrite) && isset($type->rewrite['slug']) && $slug === $type->rewrite['slug']))
 				$return[] = $type;
 		}
 

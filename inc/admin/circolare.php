@@ -17,7 +17,7 @@ function dsi_register_circolare_post_type()
     $args = array(
         'label' => __('Circolare', 'design_scuole_italia'),
         'labels' => $labels,
-        'supports' => array('title', 'editor'),
+        'supports' => array('title', 'editor', 'author'),
         'taxonomies' => array('post_tag'),
         'hierarchical' => false,
         'public' => true,
@@ -84,6 +84,7 @@ function dsi_add_circolare_metaboxes() {
         'name'        => '<span class="_dsi_circolare_tipologia">'.__( 'Tipologia circolare *', 'design_scuole_italia' ).'<span>',
         'type'             => 'taxonomy_radio_inline',
         'taxonomy'       => 'tipologia-circolare',
+        'show_option_none' => false,
        'remove_default' => 'true',
 		'attributes'    => array(
 			'required' => 'required'
@@ -548,7 +549,7 @@ add_action( 'post_submitbox_misc_actions', function( $post ){
 
 if(!function_exists('dsi_csv_generator')) {
     function dsi_csv_generator(){
-        if(is_singular("circolare") && isset($_GET) && ($_GET["csv"] == "true")) {
+        if(is_singular("circolare") && isset($_GET["csv"]) && ($_GET["csv"] == "true")) {
             global $post;
 
             // output headers so that the file is downloaded rather than displayed

@@ -14,45 +14,80 @@ add_action( 'wp_dashboard_setup', 'dsi_add_dashboard_widget' );
 
 function dsi_add_dashboard_widget() {
 
-    wp_add_dashboard_widget ('dsi_circolari_widget', 'Circolari da Leggere / Firmare', 'dsi_circolari_dashboard_widget');
+    wp_add_dashboard_widget('dsi_circolari_not_signed_widget', 'Circolari non firmate', 'dsi_circolari_not_signed_dashboard_widget');
 
-    wp_add_dashboard_widget('dsi_circolari_signed_widget', 'Circolari Firmate', 'dsi_circolari_signed_dashboard_widget');
+    wp_add_dashboard_widget('dsi_circolari_widget', 'Notifiche di nuove circolari da leggere / firmare', 'dsi_circolari_dashboard_widget');
+
+    wp_add_dashboard_widget('dsi_circolari_signed_widget', 'Circolari firmate', 'dsi_circolari_signed_dashboard_widget');
+    
+    wp_add_dashboard_widget('dsi_menu_utente_widget', 'Menu utente', 'dsi_menu_utente_dashboard_widget', 'side');
 }
 
 function dsi_circolari_dashboard_widget() {
     $userID = get_current_user_id();
 
-    echo "<div class='circolari_post_class_wrap'>";
+    echo "<div class='circolari_post_class_wrap'><p>Di seguito vengono riportate le notifiche delle circolari a te rivolte, a partire dall'attivazione del tuo utente sul sito.</p>";
 
     // verifico le circolari associate all'utente
     $lista_circolari = get_user_meta($userID, "_dsi_circolari", true);
-    // salvo in un array alternativo gli id delle circolari, per eliminare dalla coda quelle rimosse
-    $real_circolari = array();
+
     if(is_array($lista_circolari) && count($lista_circolari) > 0 ) {
+
+        // salvo in un array alternativo gli id delle circolari, per eliminare dalla coda quelle rimosse
+        $real_circolari = array();
+    
+        foreach ($lista_circolari  as $idcircolare) {
+            if ( get_post_status( $idcircolare ) ) {
+                $require_feedback = dsi_get_meta("require_feedback", "", $idcircolare) != "false";
+                $scadenza = dsi_get_meta("timestamp_scadenza_feedback", "", $idcircolare);
+
+                if($require_feedback && ($scadenza = '' || $scadenza > time()))
+                    $real_circolari[] = $idcircolare;
+            }
+        }
+        
+        if(count($lista_circolari) != count($real_circolari)){
+            update_user_meta($userID, "_dsi_circolari", $real_circolari, $lista_circolari);
+            $lista_circolari = $real_circolari;
+        }
+
+        $limit = 5;
+        $pagenum = isset( $_GET['notifiche_circolari_pagenum'] ) ? absint( $_GET['notifiche_circolari_pagenum'] ) : 1;
+        $offset = ( $pagenum - 1 ) * $limit;
+        $total = count($lista_circolari);
+        $num_of_pages = ceil( $total / $limit );
+
+        $lista_circolari = array_slice($lista_circolari, $offset, $limit);
 
         echo "<ul>";
         foreach ($lista_circolari  as $idcircolare) {
             $circolare = get_post($idcircolare);
+
             if($circolare) {
-                $real_circolari[] = $idcircolare;
                 $numerazione_circolare = dsi_get_meta("numerazione_circolare", "", $idcircolare);
                 $require_feedback = dsi_get_meta("require_feedback", "", $idcircolare);
                 $feedback_array = dsi_get_circolari_feedback_options();
 
                 echo "<li>";
-                echo "Circ. n. " . $numerazione_circolare . "<br>";
+                echo "Circolare " . $numerazione_circolare . "<br>";
                 echo " <a href='" . get_permalink($circolare) . "'>" . $circolare->post_title . '</a><br>';
                 echo "Feedback richiesto: " . $feedback_array[$require_feedback] . '<hr>';
                 echo "</li>";
-            }else{
-                echo "<li>La circolare con id ".$idcircolare." è stata eliminata</li>";
-            }
+            } 
         }
         echo "</ul>";
 
-
-        if(is_array($lista_circolari) && count($lista_circolari) != count($real_circolari)){
-            update_user_meta($userID, "_dsi_circolari", $real_circolari, $lista_circolari);
+        $page_links = paginate_links( array(
+            'base' => add_query_arg( 'notifiche_circolari_pagenum', '%#%' ),
+            'format' => '',
+            'prev_text' => __( 'Precedenti &laquo;', 'text-domain' ),
+            'next_text' => __( 'Successive &raquo;', 'text-domain' ),
+            'total' => $num_of_pages,
+            'current' => $pagenum
+        ) );
+        
+        if ( $page_links ) {
+            echo '<div class="tablenav"><div class="tablenav-pages" style="margin: 1em 0">' . $page_links . '</div></div>';
         }
     }else{
         echo "<p>Nessuna circolare presente</p>";
@@ -64,13 +99,33 @@ function dsi_circolari_dashboard_widget() {
 function dsi_circolari_signed_dashboard_widget() {
     $userID = get_current_user_id();
 
-    echo "<div class='circolari_post_class_wrap'>";
+    echo "<div class='circolari_post_class_wrap'><p>Di seguito vengono riportate le circolari a cui hai fornito riscontro.</p>";
 
     // verifico le circolari associate all'utente
     $lista_circolari = get_user_meta($userID, "_dsi_circolari_signed", true);
-    // salvo in un array alternativo gli id delle circolari, per eliminare dalla coda quelle rimosse
-    $real_circolari = array();
-    if(is_array($lista_circolari) && count($lista_circolari) > 0 ) {
+
+    if(is_array($lista_circolari) && count($lista_circolari) > 0 ) { 
+        // salvo in un array alternativo gli id delle circolari, per eliminare dalla coda quelle rimosse
+        $real_circolari = array();
+
+        foreach ($lista_circolari  as $idcircolare) {
+            if ( get_post_status( $idcircolare ) ) {
+                $real_circolari[] = $idcircolare;
+            }    
+        }
+
+        if(count($lista_circolari) != count($real_circolari)){
+            update_user_meta($userID, "_dsi_circolari_signed", $real_circolari, $lista_circolari);
+            $lista_circolari = $real_circolari;
+        }
+
+        $limit = 5;
+        $pagenum = isset( $_GET['circolari_firmate_pagenum'] ) ? absint( $_GET['circolari_firmate_pagenum'] ) : 1;
+        $offset = ( $pagenum - 1 ) * $limit;
+        $total = count($lista_circolari);
+        $num_of_pages = ceil( $total / $limit );
+
+        $lista_circolari = array_slice($lista_circolari, $offset, $limit);
 
         echo "<ul>";
         foreach ($lista_circolari as $idcircolare) {
@@ -81,7 +136,7 @@ function dsi_circolari_signed_dashboard_widget() {
                 $firma = get_user_meta($userID, "_dsi_signed_" . $idcircolare, true);
 
                 echo "<li>";
-                echo "Circ. n. " . $numerazione_circolare . "<br>";
+                echo "Circolare " . $numerazione_circolare . "<br>";
                 echo " <a href='" . get_permalink($circolare) . "'>" . $circolare->post_title . '</a><br>';
                 echo "Feedback registrato: " . strtoupper(str_replace("_", " ", $firma)) . '<hr>';
 
@@ -92,17 +147,135 @@ function dsi_circolari_signed_dashboard_widget() {
         }
         echo "</ul>";
 
-        // aggiorno l'array circolari se è differente da pregresso
-        if(is_array($lista_circolari) && count($lista_circolari) != count($real_circolari)){
-            update_user_meta($userID, "_dsi_circolari_signed", $real_circolari, $lista_circolari);
+        $page_links = paginate_links( array(
+            'base' => add_query_arg( 'circolari_firmate_pagenum', '%#%' ),
+            'format' => '',
+            'prev_text' => __( 'Precedenti &laquo;', 'text-domain' ),
+            'next_text' => __( 'Successive &raquo;', 'text-domain' ),
+            'total' => $num_of_pages,
+            'current' => $pagenum
+        ) );
+        
+        if ( $page_links ) {
+            echo '<div class="tablenav"><div class="tablenav-pages" style="margin: 1em 0">' . $page_links . '</div></div>';
         }
-    }else{
+    } else {
         echo "<p>Nessuna circolare presente</p>";
     }
     echo "</div>";
 }
 
+function dsi_circolari_not_signed_dashboard_widget() {
+    $user = wp_get_current_user();
 
+    echo "<div class='circolari_post_class_wrap'><p>Di seguito vengono riportate le circolari che attendono ancora un tuo riscontro.</p>";
+
+    $args = array(
+		'post_type' => 'circolare',
+		'numberposts' => -1,
+        'meta_query' => array(
+                'relation' => 'AND',
+                array(
+                    'key' => '_dsi_circolare_require_feedback',
+                    'value' => array('presa_visione', 'si_no', 'si_no_visione'),
+                    'compare' => 'IN'
+                ),
+                array(
+                    'relation' => 'OR',
+                    array(
+                        'key' => '_dsi_circolare_timestamp_scadenza_feedback',
+                        'compare' => 'NOT EXISTS'
+                    ),
+                    array(
+                        'key' => '_dsi_circolare_timestamp_scadenza_feedback',
+                        'value' => '',
+                        'compare' => '='
+                    ),
+                    array(
+                        'key' => '_dsi_circolare_timestamp_scadenza_feedback',
+                        'value' => time(),
+                        'compare' => '>'
+                    )
+                )
+        )
+    );
+
+    $lista_circolari = get_posts($args);
+    $circolari_firmabili_non_firmate = array();
+
+    foreach ($lista_circolari  as $circolare) {
+        if(dsi_user_can_sign_circolare($user, $circolare) && !dsi_user_has_signed_circolare($user, $circolare)) {
+            $circolari_firmabili_non_firmate[] = $circolare;
+        }
+    }
+    $lista_circolari = $circolari_firmabili_non_firmate;
+
+
+    $limit = 5;
+    $pagenum = isset( $_GET['circolari_non_firmate_pagenum'] ) ? absint( $_GET['circolari_non_firmate_pagenum'] ) : 1;
+    $offset = ( $pagenum - 1 ) * $limit;
+    $total = count($lista_circolari);
+    $num_of_pages = ceil( $total / $limit );
+
+    $lista_circolari = array_slice($lista_circolari, $offset, $limit);
+
+
+    echo "<ul>";
+    foreach($lista_circolari as $circolare) {
+            $numerazione_circolare = dsi_get_meta("numerazione_circolare", "", $circolare->ID);
+            $require_feedback = dsi_get_meta("require_feedback", "", $circolare->ID);
+            $feedback_array = dsi_get_circolari_feedback_options();
+
+            echo "<li>";
+            echo "Circolare " . $numerazione_circolare . "<br>";
+            echo " <a href='" . get_permalink($circolare) . "'>" . $circolare->post_title . '</a><br>';
+            echo "Feedback richiesto: " . $feedback_array[$require_feedback] . '<hr>';
+            echo "</li>";
+    }
+    echo "</ul>";
+
+    $page_links = paginate_links( array(
+        'base' => add_query_arg( 'circolari_non_firmate_pagenum', '%#%' ),
+        'format' => '',
+        'prev_text' => __( 'Precedenti &laquo;', 'text-domain' ),
+        'next_text' => __( 'Successive &raquo;', 'text-domain' ),
+        'total' => $num_of_pages,
+        'current' => $pagenum
+    ) );
+    
+    if ( $page_links ) {
+        echo '<div class="tablenav"><div class="tablenav-pages" style="margin: 1em 0">' . $page_links . '</div></div>';
+    }
+
+    echo "</div>";
+}
+
+function dsi_menu_utente_dashboard_widget()
+{
+    $theme_locations = get_nav_menu_locations();
+
+    if ($theme_locations['menu-utente'] ?? false)
+        $menu_obj = get_term($theme_locations['menu-utente'], 'nav_menu');
+
+    if (!isset($menu_obj) || !$menu_obj->count) {
+        echo '<p>Menu utente non configurato.</p>';
+        if (current_user_can('administrator')) { ?>
+            <p>
+                Puoi configurare questa sezione per mostrare velocemente risorse utili per gli utenti registrati, come i documenti dedicati solo al personale.
+            </p>
+            <p>
+                È possibile, ad esempio, creare un argomento "Area riservata" e collocarvi tutti i documenti riservati al personale, avendo cura di impostare la visibilità di ogni documento come privato. Quindi, per mostrare velocemente un collegamento all'argomento "Area riservata" in questa sezione, puoi configurare il menu in <em>Aspetto &gt; Menu &gt; Seleziona un menu da modificare &gt; Utente (Menu utente) </em> con una voce che conduca all'argomento "Area riservata". Se il menu Utente non è disponibile o se gli utenti autenticati non amministratori non riescono a vedere i contenuti privati, disattiva e riattiva il tema (attivandone un altro e poi riattivando quello delle scuole in <em>Aspetto &gt; Temi</em>).
+            </p>
+        <?php }
+    } else { ?>
+        <p>Qui puoi trovare velocemente collegamenti utili al personale scolastico.</p>
+        <ul>
+            <?php wp_nav_menu(array(
+                "menu" => $menu_obj,
+            )) ?>
+        </ul>
+<?php };
+}
 
 add_action('wp_dashboard_setup', 'dsi_remove_all_dashboard_meta_boxes', 100 );
 

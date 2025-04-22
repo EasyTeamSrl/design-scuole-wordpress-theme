@@ -139,15 +139,14 @@ if ( ! function_exists( 'dsi_setup' ) ) :
 		 */
 		add_theme_support( 'post-thumbnails' );
 
-        // image size
-        if ( function_exists( 'add_image_size' ) ) {
-            add_image_size( 'article-simple-thumb', 500, 384 , true);
-            add_image_size( 'item-thumb', 280, 280 , true);
-            add_image_size( 'item-gallery', 730, 485 , true);
-            add_image_size( 'vertical-card', 190, 290 , true);
-
-            add_image_size( 'banner', 600, 250 , false);
-        }
+		// image size
+		if ( function_exists( 'add_image_size' ) ) {
+			$thumbnailsizes = dsi_get_img_thumbnails();
+			
+			foreach ($thumbnailsizes as &$size) {
+				add_image_size($size["name"], $size["width"], $size["height"] , $size["crop"]);
+			}
+		}
 
         // This theme uses wp_nav_menu()
 		register_nav_menus( array(
@@ -158,6 +157,7 @@ if ( ! function_exists( 'dsi_setup' ) ) :
 			/*'menu-classe' => esc_html__( 'Sottovoci del menu principale, voce "La mia classe"', 'design_scuole_italia' ),*/
 			'menu-topright' => esc_html__( 'Menu secondario (in alto a destra)', 'design_scuole_italia' ),
 			'menu-footer' => esc_html__( 'Menu a piè di pagina', 'design_scuole_italia' ),
+			'menu-utente' => esc_html__( 'Menu utente', 'design_scuole_italia' ),
 		) );
 
 	}
@@ -458,3 +458,93 @@ function reserved_file_check(){
 	}
 }
 add_action( 'init', 'reserved_file_check', 10, 2);
+
+// aggiungi data elements alla pagina note-legali
+function insert_data_attribute_note_legali( $content ) {
+	if (is_page( 'note-legali')) {
+		$search  = array('<h2>Licenza dei contenuti', '<p>In applicazione del principio');
+		$replace = array('<h2 data-element="legal-notes-section">Licenza dei contenuti', '<p data-element="legal-notes-body">In applicazione del principio');
+	return str_replace($search, $replace, $content);
+
+	}   
+	else return $content; 
+	}
+add_filter('the_content', 'insert_data_attribute_note_legali');
+
+// anonimizza i dati in caso di opzione privacy attiva
+function rest_remove_extra_user_data($response, $user, $request) {
+	$privacy_hidden = get_user_meta( $response->data['id'], '_dsi_persona_privacy_hidden', true);
+
+	if(!$privacy_hidden || $privacy_hidden == 'true') {
+		$response->data['name'] = 'Protected user';
+
+    	unset($response->data['link']);
+    	unset($response->data['slug']);
+    	unset($response->data['avatar_urls']);
+	}
+
+	return $response;
+}
+add_filter("rest_prepare_user", "rest_remove_extra_user_data", 12, 3);
+
+//redireziona gli utenti alla pagina iniziale dopo il login (se non sono impostati redirect)
+function dsi_login_redirect( $redirect_to, $request, $user ) {
+	// Senza impostare il redirect a 'wp-admin' (nonostante $redirect_to punti a quella pagina di default),
+	// gli utenti sottoscrittori che effetuano il login si ritroverebbero in /wp-admin/profile.php, che può essere disorientante.
+	return str_ends_with($redirect_to, '/wp-admin/') ? 'wp-admin' : $redirect_to;
+}
+
+add_filter( 'login_redirect', 'dsi_login_redirect', 10, 3 );
+
+//riscrivi il meta title nella pagina dei risultati della ricerca
+function custom_search_title($title) {
+    if ( is_search() ) {
+        // Get the search query
+        $search_query = get_search_query();
+
+        if ( empty($search_query) ) {
+            $title['title'] = esc_html__('Risultati della ricerca', 'design_scuole_italia'); 
+        } else {
+            $title['title'] = sprintf(esc_html__('Risultati della ricerca per "%s"', 'design_scuole_italia'), $search_query);
+        }
+	}
+    return $title;
+}
+add_filter('document_title_parts', 'custom_search_title');
+
+
+function seleziona_termini_genitore($post_id) {
+    // Verifica se il salvataggio è automatico per evitare loop
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+
+    // Verifica se l'utente ha i permessi per modificare il post
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+
+    // Definisci le tassonomie per cui vuoi applicare questa logica
+    $tassonomie_da_controllare = ['amministrazione-trasparente']; // Sostituisci con la tua tassonomia
+
+	
+	foreach ($tassonomie_da_controllare as $tassonomia) {
+        $termini = wp_get_post_terms($post_id, $tassonomia, ['fields' => 'all']);
+        if (!empty($termini) && !is_wp_error($termini)) {
+            $termini_da_aggiungere = [];
+            foreach ($termini as $termine) {
+                $termini_da_aggiungere[] = $termine->term_id;
+
+                // Se il termine ha un genitore, aggiungilo all'array
+                if ($termine->parent != 0) {
+                    $termini_da_aggiungere[] = $termine->parent;
+                }
+            }
+			
+            // Rimuove i duplicati e assegna i termini al post
+            wp_set_post_terms($post_id, array_unique($termini_da_aggiungere), $tassonomia);
+        }
+    }
+}
+
+add_action('save_post', 'seleziona_termini_genitore');

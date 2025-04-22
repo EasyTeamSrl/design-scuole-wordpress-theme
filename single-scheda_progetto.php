@@ -43,7 +43,12 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
 
 
             <section class="section bg-white article-title">
-                <div class="title-img" <?php if($image_url){ ?>style="background-image: url('<?php echo $image_url; ?>');" <?php } ?>></div>
+                <?php 
+                    $attachment_id = get_post_thumbnail_id(); // Get the featured image ID
+                    $didascalia = wp_get_attachment_caption($attachment_id);
+                    $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+                ?>
+                <div class="title-img d-flex align-items-end" <?php if ($image_url) { ?>style="background-image: url('<?php echo $image_url; ?>');" <?php } ?><?php if ($alt_text) { ?> role="img" aria-label="<?php echo $alt_text ?>" <?php } ?>><?php if ($didascalia) { ?><div class="w-100 p-4 bg-black text-white"><?php echo $didascalia; ?></div><?php } ?></div>
                 <div class="container">
                     <div class="row variable-gutters">
                         <div class="col-md-6 d-flex align-items-center">
@@ -81,7 +86,7 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
                         <div class="col-lg-3 col-md-4 aside-border px-0">
                             <aside class="aside-main aside-sticky">
                                 <div class="aside-title" id="project-legend">
-                                    <a class="toggle-link-list" data-toggle="collapse" href="#lista-paragrafi" role="button" aria-expanded="true" aria-controls="lista-paragrafi" aria-label="apri/chiudi indice della pagina">
+                                    <a class="toggle-link-list" data-toggle="collapse" href="#lista-paragrafi" role="button" aria-expanded="true" aria-controls="lista-paragrafi" aria-label="apri/chiudi indice del progetto">
                                         <span><?php _e("Indice del progetto", "design_scuole_italia"); ?></span>
                                         <svg class="icon icon-toggle svg-arrow-down-small"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#svg-arrow-down-small"></use></svg>
                                     </a>
@@ -239,11 +244,21 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
                                             $autore = get_user_by("ID", $idutente);
                                             ?>
                                             <div class="card card-bg card-avatar rounded">
-                                                <a href="<?php echo get_author_posts_url( $autore->ID);  ?>">
+                                                <?php
+													$privacy_hidden = get_user_meta( $autore->ID, '_dsi_persona_privacy_hidden', true);
+                        
+													if($privacy_hidden == "false") {
+														?><a href="<?php echo get_author_posts_url( $autore->ID);  ?>"><?php
+													}
+												?>
                                                     <div class="card-body">
                                                         <?php get_template_part("template-parts/autore/card-insegnante"); ?>
                                                     </div>
-                                                </a>
+                                                <?php
+													if($privacy_hidden == "false") {
+														?></a><?php
+													}
+												?>
                                             </div><!-- /card card-bg card-avatar rounded -->
                                             <?php
                                         }
@@ -284,7 +299,7 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
                                 $classi = dsi_get_meta("classi");
                                 if(is_array($classi) && count($classi)>0) {
                                     ?>
-                                    <h4><?php _e( "Classi coinvolte", "design_scuole_italia" ); ?></h4>
+                                    <h3 class="h4"><?php _e( "Classi coinvolte", "design_scuole_italia" ); ?></h3>
                                     <div class="row variable-gutters">
                                         <div class="col-lg-12">
 
@@ -305,13 +320,13 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
                                 <?php if($is_realizzato == "true"){ ?>
                                     <div class="row variable-gutters">
                                         <div class="col-lg-9 wysiwig-text">
-                                            <h4 id="art-par-risultati"><?php _e("Risultati", "design_scuole_italia"); ?></h4>
+                                            <h2 class="h3" id="art-par-risultati"><?php _e("Risultati", "design_scuole_italia"); ?></h3>
                                             <?php echo wpautop($risultati); ?>
                                         </div>
                                     </div>
                                 <?php }  ?>
                                 <?php if((is_array($link_schede_documenti) && count($link_schede_documenti)>0) /*|| (is_array($file_documenti) && count($file_documenti)>0)*/){ ?>
-                                    <h4  id="art-par-documenti"><?php _e("Documenti", "design_scuole_italia"); ?></h4>
+                                    <h2 class="h3" id="art-par-documenti"><?php _e("Documenti", "design_scuole_italia"); ?></h3>
                                     <div class="row variable-gutters">
                                         <div class="col-lg-12">
                                             <div class="card-deck card-deck-spaced">
@@ -341,7 +356,7 @@ $persone_show_card = dsi_get_option("persone_show_card", "persone");
                                 }
                                 ?>
                                 <?php if($link_schede_servizi){ ?>
-                                    <h4 id="art-par-servizi"><?php _e("Servizi associati al progetto", "design_scuole_italia"); ?></h4>
+                                    <h2 class="h3" id="art-par-servizi"><?php _e("Servizi associati al progetto", "design_scuole_italia"); ?></h3>
                                     <div class="card-deck card-deck-spaced mb-4">
                                         <?php
                                         foreach ($link_schede_servizi as $idservizio){
